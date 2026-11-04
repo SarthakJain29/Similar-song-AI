@@ -124,12 +124,20 @@ export async function renderShareCard(name: string, subtitle: string, tracks: Pl
   // title
   ctx.textBaseline = "alphabetic";
   ctx.fillStyle = "#fff";
-  ctx.font = font(800, 92);
-  const lines = wrap(ctx, name, CARD_W - PAD * 2, 2);
+  // shrink the title until it fits on two lines (long journey names)
+  let titlePx = 92;
+  let lines: string[] = [];
+  for (; titlePx >= 56; titlePx -= 8) {
+    ctx.font = font(800, titlePx);
+    lines = wrap(ctx, name, CARD_W - PAD * 2, 3);
+    if (lines.length <= 2 && lines.every((l) => ctx.measureText(l).width <= CARD_W - PAD * 2)) break;
+  }
+  ctx.font = font(800, titlePx);
+  lines = wrap(ctx, name, CARD_W - PAD * 2, 2);
   let y = 250;
   for (const l of lines) {
-    ctx.fillText(l, PAD, y);
-    y += 100;
+    ctx.fillText(fit(ctx, l, CARD_W - PAD * 2), PAD, y);
+    y += Math.round(titlePx * 1.09);
   }
   ctx.font = font(500, 34);
   ctx.fillStyle = "rgba(255,255,255,.66)";
@@ -172,7 +180,7 @@ export async function renderShareCard(name: string, subtitle: string, tracks: Pl
   // track list
   const listTop = cy + tile + 78;
   const rowH = 74;
-  const maxRows = Math.max(3, Math.floor((CARD_H - 150 - listTop) / rowH));
+  const maxRows = Math.max(3, Math.floor((CARD_H - 125 - listTop) / rowH));
   const shown = tracks.slice(0, maxRows);
   shown.forEach((t, i) => {
     const ry = listTop + i * rowH;

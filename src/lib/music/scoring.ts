@@ -48,7 +48,7 @@ export function scoreCandidate(seed: Track, c: Candidate, vibe: VibeSettings): R
   }
 
   const base = 0.55 * clamp(c.match) + 0.45 * tagSim;
-  const vibeScore = 0.3 * popBias + 0.25 * eraBias + 0.3 * energyBias + 0.5 * moodFit;
+  const vibeScore = 0.5 * popBias + 0.4 * eraBias + 0.45 * energyBias + 0.7 * moodFit;
   return {
     track: c.track,
     score: base + vibeScore,

@@ -33,7 +33,16 @@ export function originalYear(releaseDate?: string, isrc?: string): number | unde
   return ok(rel) ? rel : undefined;
 }
 
-const get = <T>(path: string) => limiter.run(() => fetchJson<T>(`${BASE}${path}`, { timeoutMs: 7000 }));
+/** Deezer reports quota problems as HTTP 200 + {"error":{"code":4}}; retry those, never treat them as "no results". */
+async function get<T>(path: string): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    const data = await limiter.run(() => fetchJson<T & { error?: { code?: number; message?: string } }>(`${BASE}${path}`, { timeoutMs: 7000 }));
+    if (!data?.error) return data;
+    if (data.error.code === 800) return data; // "no data" for unknown ids is a legitimate answer
+    if (attempt >= 2) throw new Error(`Deezer: ${data.error.message ?? data.error.code}`);
+    await new Promise((r) => setTimeout(r, 700 * (attempt + 1)));
+  }
+}
 
 const art = (a?: RawTrack["album"]) => a?.cover_big || a?.cover_medium || a?.cover_xl || undefined;
 
