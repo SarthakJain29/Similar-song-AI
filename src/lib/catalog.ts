@@ -71,11 +71,11 @@ export const hydrate = memoize(
     try {
       const m = await sources.deezer.match(ref);
       if (!m) return { id };
-      let year: number | undefined;
+      let year: number | undefined = m.year;
       let artwork = m.artwork;
       if (m.id) {
         const d = await sources.deezer.details(m.id).catch(() => null);
-        year = d?.year;
+        year = d?.year ?? year;
         artwork = artwork ?? d?.artwork;
       }
       return { id, artwork, album: m.album, deezerId: m.id || undefined, hasPreview: m.hasPreview, year };

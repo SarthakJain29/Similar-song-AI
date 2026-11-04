@@ -137,7 +137,7 @@ export const mockDeezer: DeezerSource = {
   async match(ref) {
     const t = find(ref);
     if (!t) return null;
-    return { id: 0, artist: t.artist, title: t.title, album: t.album, artwork: mockArtwork(t.album + t.artist), hasPreview: false };
+    return { id: 0, artist: t.artist, title: t.title, album: t.album, artwork: mockArtwork(t.album + t.artist), hasPreview: false, year: t.year };
   },
   async details() {
     return null;

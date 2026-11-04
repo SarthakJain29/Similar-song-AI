@@ -28,6 +28,8 @@ export interface DeezerMatch {
   album?: string;
   artwork?: string;
   hasPreview: boolean;
+  /** Only set by sources that know it without a second call (mock). */
+  year?: number;
 }
 
 export interface DeezerDetails {

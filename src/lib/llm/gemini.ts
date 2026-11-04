@@ -6,29 +6,40 @@ interface GeminiResponse {
   candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
 }
 
+async function callModel(model: string, { system, user, maxTokens = 2048 }: LLMRequest): Promise<string> {
+  const data = await fetchJson<GeminiResponse>(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+    method: "POST",
+    timeoutMs: 25000,
+    retries: 0,
+    headers: { "Content-Type": "application/json", "x-goog-api-key": config.geminiKey },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: system }] },
+      contents: [{ role: "user", parts: [{ text: user }] }],
+      generationConfig: {
+        temperature: 0.3,
+        maxOutputTokens: maxTokens,
+        responseMimeType: "application/json",
+        // 2.5 models "think" by default, which is slow and unnecessary for this task
+        ...(model.includes("2.5") ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+      },
+    }),
+  });
+  const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
+  if (!text) throw new Error("Gemini returned no text");
+  return text;
+}
+
 export const geminiProvider: LLMProvider = {
   name: "gemini",
-  async completeJSON({ system, user, maxTokens = 2048 }: LLMRequest) {
-    const model = config.geminiModel;
-    const data = await fetchJson<GeminiResponse>(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-      method: "POST",
-      timeoutMs: 25000,
-      retries: 1,
-      headers: { "Content-Type": "application/json", "x-goog-api-key": config.geminiKey },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: system }] },
-        contents: [{ role: "user", parts: [{ text: user }] }],
-        generationConfig: {
-          temperature: 0.3,
-          maxOutputTokens: maxTokens,
-          responseMimeType: "application/json",
-          // 2.5-flash "thinks" by default, which is slow and unnecessary for this task
-          ...(model.includes("2.5") ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
-        },
-      }),
-    });
-    const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
-    if (!text) throw new Error("Gemini returned no text");
-    return text;
+  async completeJSON(req: LLMRequest) {
+    let lastErr: unknown;
+    for (const model of config.geminiModels) {
+      try {
+        return await callModel(model, req);
+      } catch (e) {
+        lastErr = e; // 404 (retired model) / 429 (quota) / 5xx: try the next model in the list
+      }
+    }
+    throw lastErr instanceof Error ? lastErr : new Error("Gemini failed");
   },
 };

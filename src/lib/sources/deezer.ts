@@ -14,8 +14,23 @@ interface RawTrack {
   title_short?: string;
   preview?: string;
   release_date?: string;
+  isrc?: string;
   artist: { name: string };
   album?: { title?: string; cover_medium?: string; cover_big?: string; cover_xl?: string; release_date?: string };
+}
+
+/**
+ * Deezer's release_date often belongs to a compilation / reissue. The ISRC's year digits
+ * (CC-XXX-YY-NNNNN) usually survive reissues, so take the earlier of the two when plausible.
+ */
+export function originalYear(releaseDate?: string, isrc?: string): number | undefined {
+  const now = new Date().getFullYear();
+  const ok = (y: number) => Number.isFinite(y) && y >= 1900 && y <= now + 1;
+  const rel = parseInt((releaseDate ?? "").slice(0, 4), 10);
+  const yy = parseInt((isrc ?? "").replace(/[^A-Za-z0-9]/g, "").slice(5, 7), 10);
+  const fromIsrc = Number.isFinite(yy) ? (yy >= 50 ? 1900 + yy : 2000 + yy) : NaN;
+  if (ok(rel) && ok(fromIsrc) && fromIsrc >= 1950) return Math.min(rel, fromIsrc);
+  return ok(rel) ? rel : undefined;
 }
 
 const get = <T>(path: string) => limiter.run(() => fetchJson<T>(`${BASE}${path}`, { timeoutMs: 7000 }));
@@ -86,10 +101,9 @@ const details = memoize(
   async (id: number): Promise<DeezerDetails | null> => {
     const t = await get<RawTrack & { error?: unknown }>(`/track/${id}`);
     if (!t || t.error || !t.id) return null;
-    const y = parseInt((t.release_date || t.album?.release_date || "").slice(0, 4), 10);
     return {
       id: t.id,
-      year: y >= 1900 && y <= new Date().getFullYear() + 1 ? y : undefined,
+      year: originalYear(t.release_date || t.album?.release_date, t.isrc),
       previewUrl: t.preview || undefined,
       artwork: art(t.album),
       album: t.album?.title,

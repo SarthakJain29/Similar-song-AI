@@ -10,7 +10,8 @@ const SYSTEM = `You write short "why it's similar" blurbs for a music recommenda
 STRICT RULES
 - Use ONLY the facts in the provided JSON. Do not use any outside knowledge about the songs, artists, albums, lyrics, instruments, production, history or reception.
 - If the facts are thin, write less. Never pad with generic praise or guesses.
-- One sentence, max 28 words, plain text, friendly and specific. No markdown, quotes or emojis.
+- One sentence, max 24 words, plain text, friendly and specific. No markdown, quotes or emojis.
+- No subjective praise or poetry (never "beautiful", "iconic", "anthem", "haunting", "masterpiece"); only describe what the data shows.
 - Mention concrete shared tags when available. You may mention the Last.fm similarity score (lastfmMatchPercent: a 0-100 score based on listening patterns, not an overlap percentage), popularity wording, release years, or same-artist when the facts include them.
 - Write like a knowledgeable friend: weave the tags into natural phrasing (e.g. "Another French electronic groove with the same dance-floor leanings") instead of just listing them, and vary the sentence openings across items.
 - Refer to songs by the names given. Do not introduce any other names.
@@ -30,7 +31,9 @@ async function askLLM(batch: ExplainFacts[]): Promise<Map<string, Explanation>> 
   const user = JSON.stringify({ items: batch });
   for (const provider of activeProviders()) {
     try {
+      const t0 = Date.now();
       const raw = await provider.completeJSON({ system: SYSTEM, user, maxTokens: 1800 });
+      if (process.env.DEBUG_TIMING) console.log(`[explain] ${provider.name} answered in ${Date.now() - t0}ms for ${batch.length} items`);
       const parsed = JSON.parse(raw.replace(/^```(?:json)?\s*|\s*```$/g, "")) as { items?: Array<{ id?: string; text?: string; evidence?: unknown }> };
       for (const it of parsed.items ?? []) {
         const f = batch.find((b) => b.id === it.id);

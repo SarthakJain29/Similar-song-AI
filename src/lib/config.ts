@@ -10,8 +10,9 @@ export const config = {
   get groqKey() {
     return process.env.GROQ_API_KEY?.trim() || "";
   },
-  get geminiModel() {
-    return process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
+  /** Comma-separated list, tried in order (Google retires / rate-limits free-tier models often). */
+  get geminiModels() {
+    return (process.env.GEMINI_MODEL?.trim() || "gemini-3.1-flash-lite,gemini-flash-lite-latest").split(",").map((m) => m.trim()).filter(Boolean);
   },
   get groqModel() {
     return process.env.GROQ_MODEL?.trim() || "openai/gpt-oss-20b";
