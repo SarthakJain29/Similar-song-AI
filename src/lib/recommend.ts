@@ -2,6 +2,7 @@ import { mapLimit } from "./cache";
 import { applyHydration, fullTrack, getTrack, hydrate } from "./catalog";
 import { planJourney, type JourneyCandidate } from "./music/journey";
 import { songKey } from "./music/normalize";
+import { genrePath, samplePath } from "./music/genres";
 import { rankCandidates, type Candidate } from "./music/scoring";
 import { sources } from "./sources";
 import type { JourneyResponse, JourneyStep, Recommendation, SimilarResponse, Track, TrackRef, VibeSettings } from "./types";
@@ -81,31 +82,39 @@ export async function journey(startRef: TrackRef, endRef: TrackRef, steps: numbe
     } else pool.set(k, { track: t, matchA: a, matchB: b });
   };
 
-  const load = async (anchor: Track, side: "a" | "b" | "mid", n: number) => {
+  const load = async (anchor: Track, side: "a" | "b", n: number) => {
     const sims = (await sources.lastfm.similarTracks(anchor, 60)).slice(0, n);
-    const tracks = await mapLimit(sims, 8, async (s) => ({ s, t: await getTrack(s).catch(() => null) }));
-    for (const { s, t } of tracks) if (t) add(t, side === "a" ? s.match : 0, side === "b" ? s.match : 0);
+    const tracks = await mapLimit(sims, 12, async (s) => ({ s, t: await getTrack(s).catch(() => null) }));
+    for (const { s, t } of tracks) {
+      if (!t) continue;
+      add(t, side === "a" && anchor === start ? s.match : 0, side === "b" && anchor === end ? s.match : 0);
+    }
   };
 
-  onProgress(`Exploring songs near ${start.title}…`, 0.15);
-  await load(start, "a", 26);
-  onProgress(`Exploring songs near ${end.title}…`, 0.4);
-  await load(end, "b", 26);
+  onProgress(`Exploring songs near ${start.title}…`, 0.1);
+  await load(start, "a", 18);
+  onProgress(`Exploring songs near ${end.title}…`, 0.28);
+  await load(end, "b", 18);
 
-  onProgress("Sketching a first route…", 0.6);
-  let path = planJourney(start, end, [...pool.values()], { steps });
-
-  // Bridge expansion: look around waypoints of the first route to find better stepping stones.
-  const waypoints = [path[Math.floor(path.length / 3)], path[Math.floor((2 * path.length) / 3)]].filter(Boolean);
-  let i = 0;
-  for (const w of waypoints) {
-    onProgress(`Looking for stepping stones near ${w.track.title}…`, 0.65 + 0.12 * i++);
-    await load(w.track, "mid", 16).catch(() => {});
+  // Last.fm similarity never leaves a genre cluster, so plan a route *through genres* and
+  // pull representative songs for each stop (e.g. thrash metal -> hard rock -> alternative rock -> indie -> electronic -> downtempo).
+  const route = genrePath(start.tags, end.tags);
+  const stops = samplePath(route, 8);
+  let k = 0;
+  for (const genre of stops) {
+    onProgress(`Looking for ${genre} stepping stones…`, 0.45 + (0.45 * k++) / Math.max(1, stops.length));
+    try {
+      const top = (await sources.lastfm.tagTopTracks(genre, 14)).slice(0, 8);
+      const tracks = await mapLimit(top, 12, (r) => getTrack(r).catch(() => null));
+      for (const t of tracks) if (t) add(t, 0, 0);
+    } catch {
+      /* a failed genre just leaves a thinner pool */
+    }
   }
-  onProgress("Smoothing the transitions…", 0.9);
-  path = planJourney(start, end, [...pool.values()], { steps });
 
-  const hydrated: JourneyStep[] = path;
+  onProgress("Smoothing the transitions…", 0.93);
+  const path: JourneyStep[] = planJourney(start, end, [...pool.values()], { steps, genrePath: route });
+
   onProgress("Done", 1);
-  return { start, end, steps: hydrated, mock: config.mock };
+  return { start, end, steps: path, mock: config.mock };
 }

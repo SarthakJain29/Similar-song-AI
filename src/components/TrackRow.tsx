@@ -1,4 +1,5 @@
 "use client";
+import { displayTitle } from "@/lib/music/normalize";
 import { useHydration } from "@/lib/client/hydration";
 import { toPlaylistTrack } from "@/lib/client/library";
 import type { Explanation, PlaylistTrack, Track } from "@/lib/types";
@@ -97,7 +98,7 @@ export function TrackRow({ track, index, match, sharedTags = [], explanation, ex
       <div className="row__main">
         {eyebrow}
         <div className="row__title">
-          <h3>{track.title}</h3>
+          <h3>{displayTitle(track.title)}</h3>
           <p>
             {track.artist}
             {year ? ` · ${year}` : ""}

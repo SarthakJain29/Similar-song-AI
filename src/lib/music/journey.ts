@@ -21,10 +21,12 @@ export interface JourneyCandidate {
 export interface JourneyOptions {
   steps: number;
   maxPerArtist?: number;
+  /** Optional genre route from A to B (see genres.ts); steers the 'ideal point' through intermediate genres. */
+  genrePath?: string[];
 }
 
 export function planJourney(start: Track, end: Track, pool: JourneyCandidate[], opts: JourneyOptions): JourneyStep[] {
-  const { steps, maxPerArtist = 1 } = opts;
+  const { steps, maxPerArtist = 1, genrePath = [] } = opts;
   const vA = tagVector(start.tags);
   const vB = tagVector(end.tags);
   const used = new Set<string>([songKey(start), songKey(end)]);
@@ -44,7 +46,8 @@ export function planJourney(start: Track, end: Track, pool: JourneyCandidate[], 
   let prev: Track = start;
   for (let i = 1; i <= steps; i++) {
     const progress = i / (steps + 1);
-    const ideal = lerpVec(vA, vB, progress);
+    const lerped = lerpVec(vA, vB, progress);
+    const ideal = genrePath.length > 1 ? lerpVec(lerped, genreVec(genrePath, progress), 0.65) : lerped;
     let best: { c: JourneyCandidate; score: number } | null = null;
     for (const c of pool) {
       const k = songKey(c.track);
@@ -55,7 +58,7 @@ export function planJourney(start: Track, end: Track, pool: JourneyCandidate[], 
       const onPath = cosine(v, ideal);
       const smooth = cosine(v, vecOf(prev));
       const lastfm = (1 - progress) * c.matchA + progress * c.matchB;
-      const score = 0.55 * onPath + 0.3 * smooth + 0.15 * lastfm;
+      const score = 0.68 * onPath + 0.24 * smooth + 0.08 * lastfm;
       if (!best || score > best.score) best = { c, score };
     }
     if (!best) break;
@@ -78,4 +81,16 @@ export function planJourney(start: Track, end: Track, pool: JourneyCandidate[], 
 export function driftToward(track: Track, start: Track, end: Track): { a: number; b: number } {
   const v = tagVector(track.tags);
   return { a: cosine(v, tagVector(start.tags)), b: cosine(v, tagVector(end.tags)) };
+}
+
+/** Tag vector sitting `t` (0..1) of the way along a genre route. */
+function genreVec(path: string[], t: number): TagVec {
+  const pos = t * (path.length - 1);
+  const lo = Math.floor(pos);
+  const hi = Math.min(path.length - 1, lo + 1);
+  const frac = pos - lo;
+  const v: TagVec = new Map();
+  v.set(path[lo], (v.get(path[lo]) ?? 0) + 1 - frac);
+  v.set(path[hi], (v.get(path[hi]) ?? 0) + frac);
+  return v;
 }

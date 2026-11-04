@@ -45,3 +45,12 @@ export function sameTrack(a: TrackRef, b: TrackRef): boolean {
 export function songKey(ref: TrackRef): string {
   return trackId(ref);
 }
+
+/** For display only: hides "(feat. X)" credits but keeps meaningful suffixes like "(Live)" or "(Remix)". */
+export function displayTitle(title: string): string {
+  const t = title
+    .replace(/\s*[([]\s*(?:feat\.?|ft\.?|featuring|with)\s[^)\]]*[)\]]/gi, "")
+    .replace(/\s+(?:feat\.?|ft\.?|featuring)\s+.*$/i, "")
+    .trim();
+  return t || title;
+}

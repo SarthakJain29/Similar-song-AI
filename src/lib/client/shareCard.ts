@@ -1,4 +1,5 @@
 /** Renders a shareable playlist card (PNG) on a canvas. No dependencies, works offline. */
+import { displayTitle } from "../music/normalize";
 import type { PlaylistTrack } from "../types";
 
 export const CARD_W = 1080;
@@ -75,7 +76,9 @@ function drawBlurredCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement |
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
   const scale = CARD_H / 28;
+  if ("filter" in ctx) ctx.filter = "saturate(1.7) brightness(1.05)";
   ctx.drawImage(tiny, (CARD_W - 28 * scale) / 2, 0, 28 * scale, CARD_H);
+  if ("filter" in ctx) ctx.filter = "none";
 }
 
 export async function renderShareCard(name: string, subtitle: string, tracks: PlaylistTrack[]): Promise<Blob> {
@@ -89,9 +92,9 @@ export async function renderShareCard(name: string, subtitle: string, tracks: Pl
 
   drawBlurredCover(ctx, covers.find(Boolean) ?? null);
   const shade = ctx.createLinearGradient(0, 0, 0, CARD_H);
-  shade.addColorStop(0, "rgba(8,8,14,.35)");
-  shade.addColorStop(0.55, "rgba(8,8,14,.55)");
-  shade.addColorStop(1, "rgba(8,8,14,.88)");
+  shade.addColorStop(0, "rgba(8,8,14,.18)");
+  shade.addColorStop(0.5, "rgba(8,8,14,.42)");
+  shade.addColorStop(1, "rgba(8,8,14,.86)");
   ctx.fillStyle = shade;
   ctx.fillRect(0, 0, CARD_W, CARD_H);
 
@@ -133,9 +136,9 @@ export async function renderShareCard(name: string, subtitle: string, tracks: Pl
   ctx.fillText(subtitle, PAD, y - 18);
 
   // cover collage
-  const tile = 176;
   const gap = 20;
   const n = Math.min(5, tracks.length);
+  const tile = Math.min(300, Math.floor((CARD_W - PAD * 2 - gap * (Math.max(n, 3) - 1)) / Math.max(n, 3)));
   const cy = y + 36;
   for (let i = 0; i < n; i++) {
     const x = PAD + i * (tile + gap);
@@ -167,7 +170,7 @@ export async function renderShareCard(name: string, subtitle: string, tracks: Pl
   }
 
   // track list
-  const listTop = cy + tile + 70;
+  const listTop = cy + tile + 78;
   const rowH = 74;
   const maxRows = Math.max(3, Math.floor((CARD_H - 150 - listTop) / rowH));
   const shown = tracks.slice(0, maxRows);
@@ -178,7 +181,7 @@ export async function renderShareCard(name: string, subtitle: string, tracks: Pl
     ctx.fillText(String(i + 1).padStart(2, "0"), PAD, ry + 8);
     ctx.fillStyle = "#fff";
     ctx.font = font(650, 36);
-    ctx.fillText(fit(ctx, t.title, CARD_W - PAD * 2 - 80), PAD + 76, ry - 6);
+    ctx.fillText(fit(ctx, displayTitle(t.title), CARD_W - PAD * 2 - 80), PAD + 76, ry - 6);
     ctx.fillStyle = "rgba(255,255,255,.58)";
     ctx.font = font(450, 28);
     ctx.fillText(fit(ctx, t.artist, CARD_W - PAD * 2 - 80), PAD + 76, ry + 28);

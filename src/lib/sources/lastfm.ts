@@ -106,6 +106,14 @@ const artistTopTags = memoize(
   { keyFn: (a) => `atg:${a.toLowerCase()}`, ttlMs: 3 * DAY },
 );
 
+const tagTopTracks = memoize(
+  async (tag: string, limit: number): Promise<TrackRef[]> => {
+    const d = await call<{ tracks?: { track?: Array<{ name: string; artist: { name: string } }> } }>("tag.getTopTracks", { tag, limit });
+    return asArray(d?.tracks?.track).map((t) => ({ artist: t.artist.name, title: t.name }));
+  },
+  { keyFn: (t, l) => `ttt:${t.toLowerCase()}:${l}`, ttlMs: 3 * DAY },
+);
+
 const searchTracks = memoize(
   async (query: string, limit: number): Promise<SearchHit[]> => {
     const d = await call<{ results?: { trackmatches?: { track?: Array<{ name: string; artist: string }> } } }>("track.search", { track: query, limit });
@@ -114,4 +122,4 @@ const searchTracks = memoize(
   { keyFn: (q, l) => `ts:${q.toLowerCase()}:${l}`, ttlMs: HOUR },
 );
 
-export const lastfm: LastfmSource = { trackInfo, similarTracks, similarArtists, artistTopTracks, artistTopTags, searchTracks };
+export const lastfm: LastfmSource = { trackInfo, similarTracks, similarArtists, artistTopTracks, artistTopTags, tagTopTracks, searchTracks };

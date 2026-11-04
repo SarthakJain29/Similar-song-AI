@@ -1,4 +1,5 @@
 "use client";
+import { displayTitle } from "@/lib/music/normalize";
 import { useEffect, useId, useRef, useState } from "react";
 import { apiSearch } from "@/lib/client/api";
 import { primeHydration } from "@/lib/client/hydration";
@@ -116,7 +117,7 @@ export function SearchBox({ label, placeholder = "Search a song or artist…", s
             <li key={h.id + i} id={`${listId}-${i}`} role="option" aria-selected={i === active} className={i === active ? "is-active" : ""} onMouseEnter={() => setActive(i)} onMouseDown={(e) => e.preventDefault()} onClick={() => choose(h)}>
               <Art track={h} className="art--xs" />
               <span className="search__meta">
-                <strong>{h.title}</strong>
+                <strong>{displayTitle(h.title)}</strong>
                 <span>
                   {h.artist}
                   {h.album ? ` · ${h.album}` : ""}

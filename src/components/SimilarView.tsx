@@ -1,4 +1,5 @@
 "use client";
+import { displayTitle } from "@/lib/music/normalize";
 import { useEffect, useMemo, useState } from "react";
 import { apiSimilar, vibeQuery } from "@/lib/client/api";
 import { useHydration } from "@/lib/client/hydration";
@@ -51,7 +52,7 @@ export function SimilarView({ seed }: { seed: TrackRef }) {
             <PlayOverlay track={toPlaylistTrack({ ...seedTrack, artwork: art, deezerId: seedTrack.deezerId ?? h?.deezerId })} />
           </Art>
           <p className="eyebrow">Because you like</p>
-          <h1 className="seed__title">{seedTrack.title}</h1>
+          <h1 className="seed__title">{displayTitle(seedTrack.title)}</h1>
           <p className="seed__artist">
             {seedTrack.artist}
             {(seedTrack.year ?? h?.year) ? ` · ${seedTrack.year ?? h?.year}` : ""}

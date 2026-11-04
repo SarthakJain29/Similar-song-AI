@@ -39,3 +39,15 @@ describe("planJourney", () => {
     expect(planJourney(start, end, pool.slice(0, 2), { steps: 6 }).length).toBeLessThanOrEqual(2);
   });
 });
+
+describe("planJourney with a genre route", () => {
+  it("uses intermediate-genre songs that share no tags with either end", () => {
+    const a = t("A", ["metal", "thrash metal"]);
+    const b = t("B", ["downtempo", "chillout"]);
+    const mk = (n: string, tags: string[]): JourneyCandidate => ({ track: t(n, tags), matchA: 0, matchB: 0 });
+    const pool = [mk("m1", ["metal", "heavy metal"]), mk("r1", ["rock", "hard rock"]), mk("i1", ["indie", "alternative"]), mk("e1", ["electronic", "ambient"]), mk("d1", ["downtempo", "chillout"])];
+    const route = ["metal", "rock", "indie", "electronic", "downtempo"];
+    const path = planJourney(a, b, pool, { steps: 5, genrePath: route });
+    expect(path.map((s) => s.track.id)).toEqual(["m1", "r1", "i1", "e1", "d1"]);
+  });
+});

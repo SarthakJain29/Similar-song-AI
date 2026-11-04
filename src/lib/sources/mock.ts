@@ -118,6 +118,9 @@ export const mockLastfm: LastfmSource = {
   async artistTopTags(artist) {
     return MOCK_CATALOG.find((t) => t.artist === artist)?.tags ?? [];
   },
+  async tagTopTracks(tag, limit) {
+    return MOCK_CATALOG.filter((t) => t.tags.includes(tag)).slice(0, limit);
+  },
   async searchTracks(q, limit) {
     return mockSearch(q, limit);
   },

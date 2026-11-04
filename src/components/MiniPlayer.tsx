@@ -1,4 +1,5 @@
 "use client";
+import { displayTitle } from "@/lib/music/normalize";
 import { useHydration } from "@/lib/client/hydration";
 import { usePlayer } from "@/hooks/player";
 import { Art } from "./Art";
@@ -13,7 +14,7 @@ export function MiniPlayer() {
     <div className="miniplayer glass glass--strong" role="region" aria-label="Preview player">
       <Art track={{ ...p.current, artwork: art }} className="art--mini" />
       <div className="miniplayer__meta">
-        <strong>{p.current.title}</strong>
+        <strong>{displayTitle(p.current.title)}</strong>
         <span>{p.status === "error" ? p.message : p.status === "loading" ? "Loading preview…" : `${p.current.artist} · 30s preview`}</span>
       </div>
       <div className="miniplayer__ctrl">

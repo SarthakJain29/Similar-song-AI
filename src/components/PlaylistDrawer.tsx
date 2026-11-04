@@ -1,4 +1,5 @@
 "use client";
+import { displayTitle } from "@/lib/music/normalize";
 import { useEffect, useRef, useState } from "react";
 import { library, useLibrary } from "@/lib/client/library";
 import { hydratedArtwork } from "@/lib/client/hydration";
@@ -64,7 +65,7 @@ export function PlaylistDrawer({ open, onClose, onShare }: Props) {
                   <li key={t.id}>
                     <Art track={t} className="art--xs" />
                     <span>
-                      <strong>{t.title}</strong>
+                      <strong>{displayTitle(t.title)}</strong>
                       <em>{t.artist}</em>
                     </span>
                     <button className="icon-btn icon-btn--sm" onClick={() => library.removeFromDraft(t.id)} aria-label={`Remove ${t.title}`}>

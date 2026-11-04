@@ -148,7 +148,9 @@ a { color: inherit; text-decoration: none; }
 }
 .topbar::before {
   content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
-  background: linear-gradient(180deg, rgba(8, 8, 14, 0.7), transparent);
+  background: linear-gradient(180deg, rgba(8, 8, 14, 0.78), rgba(8, 8, 14, 0.35));
+  -webkit-backdrop-filter: blur(22px) saturate(160%); backdrop-filter: blur(22px) saturate(160%);
+  -webkit-mask-image: linear-gradient(180deg, #000 72%, transparent); mask-image: linear-gradient(180deg, #000 72%, transparent);
 }
 .brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: -0.02em; font-size: 1.02rem; justify-self: start; }
 .tabs { display: inline-flex; padding: 4px; border-radius: 999px; }

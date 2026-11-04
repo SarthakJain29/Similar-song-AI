@@ -18,6 +18,7 @@ export interface LastfmSource {
   similarArtists(artist: string, limit: number): Promise<Array<{ name: string; match: number }>>;
   artistTopTracks(artist: string, limit: number): Promise<TrackRef[]>;
   artistTopTags(artist: string): Promise<string[]>;
+  tagTopTracks(tag: string, limit: number): Promise<TrackRef[]>;
   searchTracks(query: string, limit: number): Promise<SearchHit[]>;
 }
 

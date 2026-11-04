@@ -1,4 +1,5 @@
 "use client";
+import { displayTitle } from "@/lib/music/normalize";
 import { useEffect, useMemo, useState } from "react";
 import { apiJourney } from "@/lib/client/api";
 import { library, toPlaylistTrack, useLibrary } from "@/lib/client/library";
@@ -173,7 +174,7 @@ function Endpoint({ kind, track, all }: { kind: "A" | "B"; track: JourneyRespons
         </Art>
         <div>
           <p className="eyebrow eyebrow--sm">{kind === "A" ? "Start" : "Destination"}</p>
-          <h3>{track.title}</h3>
+          <h3>{displayTitle(track.title)}</h3>
           <p>{track.artist}</p>
           <ul className="tags">
             {track.tags.slice(0, 5).map((t) => (
