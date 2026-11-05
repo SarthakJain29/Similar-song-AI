@@ -23,6 +23,14 @@ describe("mock end-to-end", () => {
     expect(res.results.some((r) => r.track.title === "Creep")).toBe(false);
     expect(res.results[0].sharedTags.length).toBeGreaterThan(0);
   });
+  it("caps the seed artist in the main list and moves the rest to moreFromArtist", async () => {
+    const res = await similar({ artist: "Radiohead", title: "Creep" }, DEFAULT_VIBE, 12);
+    expect(res.results.filter((r) => r.track.artist === "Radiohead").length).toBeLessThanOrEqual(1);
+    expect(res.moreFromArtist.length).toBeGreaterThan(0);
+    expect(res.moreFromArtist.every((r) => r.track.artist === "Radiohead" && r.track.title !== "Creep")).toBe(true);
+    const main = new Set(res.results.map((r) => r.track.id));
+    expect(res.moreFromArtist.some((r) => main.has(r.track.id))).toBe(false);
+  });
   it("vibe controls change the results", async () => {
     const calm = await similar({ artist: "Radiohead", title: "Creep" }, { ...DEFAULT_VIBE, energy: -1 }, 5);
     const loud = await similar({ artist: "Radiohead", title: "Creep" }, { ...DEFAULT_VIBE, energy: 1 }, 5);

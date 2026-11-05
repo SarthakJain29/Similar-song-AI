@@ -10,6 +10,7 @@ import { DEFAULT_VIBE, type PlaylistTrack, type TrackRef, type VibeSettings } fr
 import { useDebounced, useResource } from "@/hooks/useAsync";
 import { Art } from "./Art";
 import { Icon } from "./Logo";
+import { MoreFromArtist } from "./MoreFromArtist";
 import { PlayOverlay, TrackRow } from "./TrackRow";
 import { VibePanel } from "./VibePanel";
 import { useExplanations } from "./useExplanations";
@@ -99,6 +100,7 @@ export function SimilarView({ seed }: { seed: TrackRef }) {
             <p>Last.fm doesn’t know many songs like this one yet. Try loosening the vibe controls or a different song.</p>
           </div>
         )}
+        {data && <MoreFromArtist artist={data.seed.artist} items={data.moreFromArtist ?? []} inDraft={inDraft} onToggle={toggleDraft} />}
         {data?.mock && <p className="fineprint">Demo mode: showing a small built-in catalogue because no Last.fm key is configured.</p>}
       </section>
     </div>

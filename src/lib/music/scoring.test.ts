@@ -51,6 +51,11 @@ describe("scoring", () => {
     const out = rankCandidates(seed, dupes, DEFAULT_VIBE, { maxPerArtist: 2 });
     expect(out.map((r) => r.track.title)).toEqual(["One", "Two"]);
   });
+  it("limits the seed's own artist to seedArtistCap", () => {
+    const same: Candidate[] = [1, 2, 3].map((i) => ({ track: t("Seed", `Other ${i}`, ["indie rock"]), match: 0.9 }));
+    const out = rankCandidates(seed, [...same, ...pool], DEFAULT_VIBE, { seedArtistCap: 1 });
+    expect(out.filter((r) => r.track.artist === "Seed")).toHaveLength(1);
+  });
   it("neutral vibe is a pure similarity ranking", () => {
     const out = rankCandidates(seed, pool, DEFAULT_VIBE);
     expect(out.length).toBe(5);

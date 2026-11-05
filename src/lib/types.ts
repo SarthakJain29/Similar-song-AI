@@ -50,6 +50,8 @@ export const DEFAULT_VIBE: VibeSettings = { popularity: 0, era: 0, energy: 0, mo
 export interface SimilarResponse {
   seed: Track;
   results: Recommendation[];
+  /** Other songs by the seed's artist, kept out of the main list to preserve diversity. */
+  moreFromArtist: Recommendation[];
   mock: boolean;
 }
 

@@ -1,7 +1,7 @@
 import { mapLimit } from "./cache";
 import { applyHydration, fullTrack, getTrack, hydrate } from "./catalog";
 import { planJourney, type JourneyCandidate } from "./music/journey";
-import { songKey } from "./music/normalize";
+import { cleanArtist, fold, songKey } from "./music/normalize";
 import { genrePath, samplePath } from "./music/genres";
 import { rankCandidates, type Candidate } from "./music/scoring";
 import { sources } from "./sources";
@@ -40,7 +40,11 @@ export async function similar(seedRef: TrackRef, vibe: VibeSettings, limit = 12)
 
   const raw = await similarCandidates(seed, 20);
   const t2 = Date.now();
-  const pool = raw.slice(0, poolSize(vibe));
+  // Same-artist songs would crowd out the list: keep a few for the "more from this artist" row only.
+  const sameArtist = (r: TrackRef) => fold(cleanArtist(r.artist)) === fold(cleanArtist(seed.artist));
+  const others = raw.filter((r) => !sameArtist(r));
+  const mine = raw.filter(sameArtist).slice(0, 8);
+  const pool = [...others.slice(0, poolSize(vibe)), ...mine];
   const needYear = vibe.era !== 0;
 
   const candidates = (
@@ -57,8 +61,31 @@ export async function similar(seedRef: TrackRef, vibe: VibeSettings, limit = 12)
   ).filter((c): c is Candidate => c !== null);
 
   if (process.env.DEBUG_TIMING) console.log(`[similar] seed ${t1 - t0}ms, neighbours ${t2 - t1}ms, enrich ${Date.now() - t2}ms (${pool.length} tracks)`);
-  const results: Recommendation[] = rankCandidates(seed, candidates, vibe, { limit });
-  return { seed, results, mock: config.mock };
+  const results: Recommendation[] = rankCandidates(seed, candidates, vibe, { limit, seedArtistCap: 1 });
+  const moreFromArtist = await moreFromSeedArtist(seed, candidates, vibe, new Set(results.map((r) => r.track.id)));
+  return { seed, results, moreFromArtist, mock: config.mock };
+}
+
+/** Other songs by the seed artist: ranked same-artist candidates, topped up with the artist's top tracks. */
+async function moreFromSeedArtist(seed: Track, candidates: Candidate[], vibe: VibeSettings, taken: Set<string>, want = 6): Promise<Recommendation[]> {
+  const artistKey = fold(cleanArtist(seed.artist));
+  const same = candidates.filter((c) => fold(cleanArtist(c.track.artist)) === artistKey && !taken.has(c.track.id));
+  const out = rankCandidates(seed, same, vibe, { limit: want, maxPerArtist: want, seedArtistCap: want });
+  if (out.length < want) {
+    try {
+      const have = new Set([...taken, ...out.map((r) => r.track.id)]);
+      const top = await sources.lastfm.artistTopTracks(seed.artist, 12);
+      const extra = (await mapLimit(top.slice(0, 10), 8, async (t) => getTrack(t).catch(() => null)))
+        .filter((t): t is Track => t !== null)
+        .map((t): Candidate => ({ track: t, match: 0.5 }));
+      for (const r of rankCandidates(seed, extra, vibe, { limit: want, maxPerArtist: want, seedArtistCap: want })) {
+        if (!have.has(r.track.id) && out.length < want) out.push(r);
+      }
+    } catch {
+      /* optional row */
+    }
+  }
+  return out;
 }
 
 /* ------------------------------------------------------------------ journey */

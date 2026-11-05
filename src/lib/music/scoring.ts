@@ -62,11 +62,14 @@ export function scoreCandidate(seed: Track, c: Candidate, vibe: VibeSettings): R
 export interface RankOptions {
   limit?: number;
   maxPerArtist?: number;
+  /** Max results by the seed's own artist (the rest belong in a "more from this artist" row). Default 1. */
+  seedArtistCap?: number;
 }
 
 /** Rank candidates, drop the seed itself and near-duplicate editions, keep artists diverse. */
 export function rankCandidates(seed: Track, candidates: Candidate[], vibe: VibeSettings, opts: RankOptions = {}): Recommendation[] {
-  const { limit = 15, maxPerArtist = 2 } = opts;
+  const { limit = 15, maxPerArtist = 2, seedArtistCap = 1 } = opts;
+  const seedArtist = fold(cleanArtist(seed.artist));
   const seedKey = songKey(seed);
   const seen = new Set<string>([seedKey]);
   const unique: Candidate[] = [];
@@ -86,7 +89,7 @@ export function rankCandidates(seed: Track, candidates: Candidate[], vibe: VibeS
   for (const r of scored) {
     const a = fold(cleanArtist(r.track.artist));
     const n = perArtist.get(a) ?? 0;
-    if (n >= maxPerArtist) continue;
+    if (n >= (a === seedArtist ? seedArtistCap : maxPerArtist)) continue;
     perArtist.set(a, n + 1);
     out.push(r);
     if (out.length >= limit) break;
