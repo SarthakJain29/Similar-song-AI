@@ -63,7 +63,7 @@ const trackInfo = memoize(
       url: t.url,
     };
   },
-  { keyFn: (r) => `ti:${trackId(r)}`, ttlMs: (r) => (r ? 3 * DAY : HOUR), max: 5000 },
+  { keyFn: (r) => `ti:${trackId(r)}`, ttlMs: (r) => (r ? 3 * DAY : HOUR), max: 5000, persist: true },
 );
 
 const similarTracks = memoize(
@@ -79,7 +79,7 @@ const similarTracks = memoize(
       match: Math.max(0, Math.min(1, Number(t.match) || 0)),
     }));
   },
-  { keyFn: (r, l) => `st:${trackId(r)}:${l}`, ttlMs: DAY },
+  { keyFn: (r, l) => `st:${trackId(r)}:${l}`, ttlMs: DAY, persist: true },
 );
 
 const similarArtists = memoize(
@@ -87,7 +87,7 @@ const similarArtists = memoize(
     const d = await call<{ similarartists?: { artist?: Array<{ name: string; match: string }> } }>("artist.getSimilar", { artist, limit });
     return asArray(d?.similarartists?.artist).map((a) => ({ name: a.name, match: Number(a.match) || 0 }));
   },
-  { keyFn: (a, l) => `sa:${a.toLowerCase()}:${l}`, ttlMs: 2 * DAY },
+  { keyFn: (a, l) => `sa:${a.toLowerCase()}:${l}`, ttlMs: 2 * DAY, persist: true },
 );
 
 const artistTopTracks = memoize(
@@ -95,7 +95,7 @@ const artistTopTracks = memoize(
     const d = await call<{ toptracks?: { track?: Array<{ name: string; artist: { name: string } }> } }>("artist.getTopTracks", { artist, limit });
     return asArray(d?.toptracks?.track).map((t) => ({ artist: t.artist.name, title: t.name }));
   },
-  { keyFn: (a, l) => `att:${a.toLowerCase()}:${l}`, ttlMs: 2 * DAY },
+  { keyFn: (a, l) => `att:${a.toLowerCase()}:${l}`, ttlMs: 2 * DAY, persist: true },
 );
 
 const artistTopTags = memoize(
@@ -103,7 +103,7 @@ const artistTopTags = memoize(
     const d = await call<{ toptags?: { tag?: RawTag[] } }>("artist.getTopTags", { artist });
     return cleanTags(asArray(d?.toptags?.tag).map((t) => t.name));
   },
-  { keyFn: (a) => `atg:${a.toLowerCase()}`, ttlMs: 3 * DAY },
+  { keyFn: (a) => `atg:${a.toLowerCase()}`, ttlMs: 3 * DAY, persist: true },
 );
 
 const tagTopTracks = memoize(
@@ -111,7 +111,7 @@ const tagTopTracks = memoize(
     const d = await call<{ tracks?: { track?: Array<{ name: string; artist: { name: string } }> } }>("tag.getTopTracks", { tag, limit });
     return asArray(d?.tracks?.track).map((t) => ({ artist: t.artist.name, title: t.name }));
   },
-  { keyFn: (t, l) => `ttt:${t.toLowerCase()}:${l}`, ttlMs: 3 * DAY },
+  { keyFn: (t, l) => `ttt:${t.toLowerCase()}:${l}`, ttlMs: 3 * DAY, persist: true },
 );
 
 const searchTracks = memoize(

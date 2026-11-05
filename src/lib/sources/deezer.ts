@@ -102,7 +102,7 @@ const match = memoize(
     }
     return null;
   },
-  { keyFn: (r) => `m:${trackId(r)}`, ttlMs: (r) => (r ? 7 * DAY : 6 * HOUR), max: 5000 },
+  { keyFn: (r) => `m:${trackId(r)}`, ttlMs: (r) => (r ? 7 * DAY : 6 * HOUR), max: 5000, persist: true },
 );
 
 /** Details incl. release year. Preview URLs are signed and expire after ~15 min => short TTL. */

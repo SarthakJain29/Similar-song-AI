@@ -7,6 +7,8 @@
  * HTTP Cache-Control headers on our API routes add CDN caching on top.
  */
 
+import { persistentStore } from "./persist";
+
 export class TTLCache<V> {
   private map = new Map<string, { v: V; exp: number }>();
   constructor(private max = 2000) {}
@@ -45,13 +47,18 @@ export const MIN = 60_000;
 export const HOUR = 60 * MIN;
 export const DAY = 24 * HOUR;
 
-/** Wrap an async function with caching + in-flight de-duplication. */
+/**
+ * Wrap an async function with caching + in-flight de-duplication.
+ * With `persist: true` and a configured Redis (see persist.ts) results also survive restarts / are shared
+ * between serverless instances; the in-memory tier is always checked first and is the default.
+ */
 export function memoize<A extends unknown[], R>(
   fn: (...args: A) => Promise<R>,
   opts: {
     keyFn: (...args: A) => string;
     ttlMs: number | ((result: R) => number);
     max?: number;
+    persist?: boolean;
   },
 ): (...args: A) => Promise<R> {
   const cache = new TTLCache<R>(opts.max ?? 2000);
@@ -62,12 +69,26 @@ export function memoize<A extends unknown[], R>(
     if (hit !== undefined) return Promise.resolve(hit);
     const running = inflight.get(key);
     if (running) return running;
-    const p = fn(...args)
-      .then((r) => {
-        const ttl = typeof opts.ttlMs === "function" ? opts.ttlMs(r) : opts.ttlMs;
-        if (ttl > 0) cache.set(key, r, ttl);
-        return r;
-      })
+    const store = opts.persist ? persistentStore() : null;
+    const p = (async () => {
+      if (store) {
+        const stored = await store.get(key);
+        if (stored) {
+          const v = stored.v as R;
+          const ttl = typeof opts.ttlMs === "function" ? opts.ttlMs(v) : opts.ttlMs;
+          // memory tier gets a short lease; Redis owns the real expiry
+          cache.set(key, v, Math.min(ttl, 10 * MIN));
+          return v;
+        }
+      }
+      const r = await fn(...args);
+      const ttl = typeof opts.ttlMs === "function" ? opts.ttlMs(r) : opts.ttlMs;
+      if (ttl > 0) {
+        cache.set(key, r, ttl);
+        if (store) void store.set(key, r, ttl);
+      }
+      return r;
+    })()
       .finally(() => inflight.delete(key));
     inflight.set(key, p);
     return p;
