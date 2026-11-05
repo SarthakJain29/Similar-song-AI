@@ -16,7 +16,7 @@
 | Journey | Playlist that glides A → B | Genre-route planner + tag-space interpolation (see §4) |
 | Keepable | Save + share | Playlists in `localStorage`, canvas-rendered 4:5 share card PNG |
 
-**Ideas considered and parked** (see Roadmap): MusicBrainz enrichment for exact release dates, shareable playlist links (state in URL hash), "taste profile" from several seeds, Spotify/Apple playlist export, account sync, audio-feature estimation from preview clips, lyrics themes.
+**Ideas considered and parked** (see Roadmap): MusicBrainz enrichment for exact release dates, "taste profile" from several seeds, Spotify/Apple playlist export, account sync, audio-feature estimation from preview clips, lyrics themes.
 
 **Design direction.** Dark, large bold type (Inter variable), blurred artwork backdrop that crossfades to whatever is playing, glass surfaces (`backdrop-filter`), spring-ish easing, staggered row entrances, reduced-motion respected. No Apple names/logos/marks: the brand is "Similar Song AI" with two overlapping rings as the logo and a coral→amber accent.
 
@@ -42,6 +42,7 @@ Quality gates: `npm run check` (typecheck + lint + tests). Production build: `np
 | `LLM_PROVIDER` | Optional | `auto` (default) / `gemini` / `groq` / `none` | `auto` tries Gemini then Groq |
 | `GEMINI_MODEL` | Optional | comma list, tried in order | default `gemini-3.1-flash-lite,gemini-flash-lite-latest` (Google retires/ rate-limits free models often) |
 | `GROQ_MODEL` | Optional | | default `openai/gpt-oss-20b` |
+| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Optional | https://console.upstash.com (free Redis; Vercel KV's `KV_REST_API_URL`/`KV_REST_API_TOKEN` also work) | Enables the persistent cache tier (see §3) |
 | `MOCK_MODE` | Optional | `1` forces mock data | useful for demos/offline |
 
 No key is ever sent to the browser. Deezer's public API and image CDN need no key. Without LLM keys explanations come from a deterministic tag template (badge "AI" is only shown on LLM-written text).
@@ -75,6 +76,15 @@ Key modules (`src/lib`):
 - Deezer preview URLs are signed and expire in ~15 min → never stored in caches or saved playlists; `/api/preview` resolves them on play (6 min server TTL).
 - API responses carry `Cache-Control: s-maxage` so a CDN can absorb repeat queries. Cache is per server instance (fine for free tiers).
 - Cold similar request ≈ 4–6 s (≈24 Last.fm lookups); warm ≈ instant. Journey cold ≈ 7–15 s (streamed progress).
+
+### Persistent cache (optional)
+`memoize(..., { persist: true })` adds a Redis tier (`src/lib/persist.ts`, Upstash REST over `fetch`, no dependency) behind the in-memory cache, which stays the default and is always checked first. Only upstream-derived Last.fm / Deezer match lookups are persisted (3 d–7 d TTLs, keys `ssai:v1:*`); search, previews and LLM output are not. Every Redis failure degrades to a cache miss, and 3 consecutive failures switch the tier off for 60 s. Writes are fire-and-forget, so on serverless a write may occasionally be dropped when the function freezes. `/api/status` reports `persistentCache`.
+
+### Shareable links (`src/lib/share-link.ts`, `SharedView`)
+`/?s=<v>.<base64url>`: JSON `{n, t:[[artist,title]…]}` (≤ 40 tracks), deflate-raw compressed when `CompressionStream` exists (`v=1`), else plain (`v=0`). Nothing is stored server-side; the receiver re-resolves artwork/previews. Links are untrusted input: size-limited, shape-checked, invalid ones show a friendly error. Created from the share-card modal ("Copy link").
+
+### Result diversity
+The seed's artist gets at most 1 slot in the main list (`seedArtistCap`), other artists max 2. Same-artist candidates (plus the artist's top tracks if needed) feed a separate "More from {artist}" row (`moreFromArtist` in `/api/similar`).
 
 ### Ranking (`music/scoring.ts`)
 `score = 0.55·lastfmMatch + 0.45·tagSimilarity + vibe`, where vibe = `0.5·popularityBias + 0.4·eraBias + 0.45·energyBias + 0.7·moodFit`. Biases are signed and zero at the neutral slider position, so untouched controls never distort results. At most 2 tracks per artist; remasters/edits of the seed are dropped.
@@ -114,6 +124,9 @@ Prompt = strict system rules + JSON facts only. Output is `{"items":[{id,text,ev
 - **Titles shown without "(feat. …)"** but never altered in lookups.
 - **Playlist storage** keeps only `{id, artist, title, album, artwork, deezerId}`; no signed URLs.
 - **Share card** rendered on a canvas client-side (no deps, works offline) with art routed through an allow-listed proxy for CORS.
+- **Same-artist cap = 1 in main list + separate row** rather than dropping them: users still want the artist's other songs, just not as the whole list.
+- **Links carry content, not an id**: no database, links never expire, and nothing personal is stored.
+- **Redis via REST/fetch** instead of an SDK: zero new dependencies, works on Vercel/Cloudflare/Node.
 - **MusicBrainz not used** (optional in the brief): 1 req/s is too slow for per-row enrichment; see Roadmap.
 - **Mock mode** triggers when `LASTFM_API_KEY` is missing (or `MOCK_MODE=1`), including a mock Deezer so the demo is consistent offline.
 - **Vitest** (not Jest) for speed; tests cover core logic and run the whole pipeline on mock data.
@@ -128,7 +141,7 @@ Prompt = strict system rules + JSON facts only. Output is `{"items":[{id,text,ev
 | Last.fm similarity can't bridge genres (journey stayed in metal) | Frontier expansion around waypoints (no help) | Added genre graph + `tag.getTopTracks` bridging |
 | Last.fm has no release year / usable artwork | — | Deezer (+ ISRC heuristic) |
 | Metallica absent on Deezer from the sandbox | Tried advanced + plain queries | Gradient placeholder art, no preview (not fixable client-side) |
-| Screenshots | Playwright + bundled Chromium worked | Real screenshots in `docs/screenshots/`. No animated GIF recorded — add one if desired (`playwright` video → gif) |
+| Screenshots | Playwright + bundled Chromium worked | Real screenshots in `docs/screenshots/`. Animated demo recorded with Playwright video + ffmpeg (`docs/demo.gif`, ~3 MB) |
 | `next dev` generated `AGENTS.md` | — | Deleted; not needed |
 
 ## 8. Progress
@@ -139,13 +152,13 @@ Prompt = strict system rules + JSON facts only. Output is `{"items":[{id,text,ev
 - Ranking + vibe controls, journey planner (genre route), grounded LLM explanations (Gemini → Groq → template)
 - Full UI: hero, autocomplete combobox, results with art/previews/why, vibe panel, journey timeline with streamed progress, mini player, library drawer (localStorage), share-card modal (PNG download / Web Share), mobile layout
 - 49 unit/integration tests; typecheck, lint and production build pass
-- README with real screenshots + Mermaid diagram
+- README with real screenshots, animated GIF + Mermaid diagram
+- Round 2: seed-artist cap + "More from this artist" row, shareable playlist links, optional Upstash/Vercel KV cache tier, demo GIF
 
 ### In progress
 - —
 
 ### Next / Roadmap
-- Shareable playlist links (encode `[{a,t}]` in the URL hash)
 - MusicBrainz lazy enrichment for exact first-release dates
-- Multi-seed "taste mix"; export to other services; persistent cache (KV/Redis) for serverless
-- Optional animated GIF for the README; Playwright e2e smoke test in CI
+- Multi-seed "taste mix"; export to other services
+- Playwright e2e smoke test in CI

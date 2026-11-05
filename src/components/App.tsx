@@ -14,6 +14,7 @@ import { MiniPlayer } from "./MiniPlayer";
 import { PlaylistDrawer } from "./PlaylistDrawer";
 import { SearchBox } from "./SearchBox";
 import { ShareModal, type ShareTarget } from "./ShareModal";
+import { SharedView } from "./SharedView";
 import { SimilarView } from "./SimilarView";
 
 const EXAMPLES: TrackRef[] = [
@@ -44,6 +45,7 @@ function PlayerBackdropBridge() {
 function Shell() {
   const router = useRouter();
   const sp = useSearchParams();
+  const sharedCode = sp.get("s");
   const mode = sp.get("m") === "journey" ? "journey" : "similar";
   const seed = parseRef(sp, "a", "t");
   const jStart = parseRef(sp, "a", "t");
@@ -67,7 +69,7 @@ function Shell() {
   const startJourney = (p: { start: TrackRef; end: TrackRef; steps: number }) => go({ m: "journey", a: p.start.artist, t: p.start.title, a2: p.end.artist, t2: p.end.title, n: String(p.steps) });
 
   const journeyParams: JourneyParams = { start: jStart, end: jEnd, steps };
-  const noArt = mode === "journey" ? !jStart : !seed;
+  const noArt = sharedCode ? false : mode === "journey" ? !jStart : !seed;
   useEffect(() => {
     if (noArt) setBackdropArt(undefined);
   }, [noArt]);
@@ -98,8 +100,9 @@ function Shell() {
       </header>
 
       <main className="main">
-        {mode === "similar" && !seed && <Hero onPick={pickSeed} onExample={pickSeed} onJourney={() => go({ m: "journey" })} />}
-        {mode === "similar" && seed && (
+        {sharedCode && <SharedView key={sharedCode} code={sharedCode} />}
+        {!sharedCode && mode === "similar" && !seed && <Hero onPick={pickSeed} onExample={pickSeed} onJourney={() => go({ m: "journey" })} />}
+        {!sharedCode && mode === "similar" && seed && (
           <div className="stack">
             <div className="stack__search">
               <SearchBox key={`${seed.artist}${seed.title}`} label="Search for a song" initialText={`${seed.title} — ${seed.artist}`} onSelect={pickSeed} />
@@ -107,14 +110,14 @@ function Shell() {
             <SimilarView key={`${seed.artist}|${seed.title}`} seed={seed} />
           </div>
         )}
-        {mode === "journey" && (
+        {!sharedCode && mode === "journey" && (
           <JourneyView
             key={`${jStart?.artist}|${jStart?.title}|${jEnd?.artist}|${jEnd?.title}|${steps}`}
             params={journeyParams}
             onSubmit={startJourney}
           />
         )}
-        {mode === "journey" && !jEnd && (
+        {!sharedCode && mode === "journey" && !jEnd && (
           <p className="try try--center">
             Try:{" "}
             <button className="link" onClick={() => startJourney({ ...JOURNEY_EXAMPLE, steps: 8 })}>
